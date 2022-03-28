@@ -32,6 +32,84 @@ from pathlib import Path
 import torch
 import torch.backends.cudnn as cudnn
 
+def slope(p1,p2):
+    x1,y1=p1
+    x2,y2=p2
+    if x2!=x1:
+        return((y2-y1)/(x2-x1))
+    else:
+        return 'NA'
+
+def drawLine_2(image,p1,p2):
+    x1,y1=p1
+    x2,y2=p2
+    ### finding slope
+    m=slope(p1,p2)
+    ### getting image shape
+    h,w=image.shape[:2]
+
+    if m!='NA':
+        ### here we are essentially extending the line to x=0 and x=width
+        ### and calculating the y associated with it
+        ##starting point
+        px=0
+        py=-(x1-0)*m+y1
+        ##ending point
+        qx=w
+        qy=-(x2-w)*m+y2
+    else:
+    ### if slope is zero, draw a line with x=x1 and y=0 and y=height
+        px,py=x1,0
+        qx,qy=x1,h
+    cv2.line(image, (int(px), int(py)), (int(qx), int(qy)), (0, 0, 255), 2)
+    return image
+
+def drawLine(image,p1,p2):
+    x1,y1=p1
+    x2,y2=p2
+    ### finding slope
+    m=slope(p1,p2)
+    ### getting image shape
+    h,w=image.shape[:2]
+
+    if m!='NA':
+        ### here we are essentially extending the line to x=0 and x=width
+        ### and calculating the y associated with it
+        ##starting point
+        px=0
+        py=-(x1-0)*m+y1
+        ##ending point
+        qx=w
+        qy=-(x2-w)*m+y2
+    else:
+    ### if slope is zero, draw a line with x=x1 and y=0 and y=height
+        px,py=x1,0
+        qx,qy=x1,h
+    cv2.line(image, (int(px), int(py)), (int(qx), int(qy)), (0, 255, 0), 2)
+    return image
+#count vains 
+def count_vains(x_lim,x_measured,vains, w_size, im, center_coordinates, xyxy):
+    if abs(x_lim-x_measured)<=w_size: #15 por defecto
+        color = (0, 255, 0)
+        thickness=-1
+        radius = 5
+        cv2.circle(im, center_coordinates, radius, color, thickness)
+        #annotator = Annotator(im, line_width=thickness, example='')
+        #annotator.box_label(xyxy, 'h', color=256)
+        vains=vains+1;
+        return vains
+    else:
+        return vains
+    
+def measure_area(x_lim,x_measured,A_one_box, i_area):
+    if abs(x_lim-x_measured)<=35:
+        i_area=i_area+1
+        return A_one_box, i_area
+    else:
+        return 0, i_area   
+
+
+
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0]  # YOLOv5 root directory
 if str(ROOT) not in sys.path:
@@ -91,7 +169,16 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
     model = DetectMultiBackend(weights, device=device, dnn=dnn, data=data, fp16=half)
     stride, names, pt = model.stride, model.names, model.pt
     imgsz = check_img_size(imgsz, s=stride)  # check image size
-
+    #-------------------------------------------------------
+    #variables adicionales GBOT
+    vains=0 #initial number of vains for each detection
+    A=0
+    i_area=0 #numero de iteraciones
+    w_size=15 #ancho default
+    thersold=12 #cantidad de frames que aparece la franja secundaria si hay obstruccion
+    column_names = ["vainas", "area", "diff", "frame"]
+    cum_sum_ = pd.DataFrame(columns=column_names)
+    #--------------------------------------------------------
     # Dataloader
     if webcam:
         view_img = check_imshow()
@@ -104,6 +191,8 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
     vid_path, vid_writer = [None] * bs, [None] * bs
 
     # Run inference
+    area=0
+    vainas=0
     model.warmup(imgsz=(1 if pt else bs, 3, *imgsz))  # warmup
     dt, seen = [0.0, 0.0, 0.0], 0
     for path, im, im0s, vid_cap, s in dataset:
@@ -164,10 +253,30 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
 
                     if save_img or save_crop or view_img:  # Add bbox to image
                         c = int(cls)  # integer class
-                        label = None if hide_labels else (names[c] if hide_conf else f'{names[c]} {conf:.2f}')
+                        center_coordinates=((xyxy[2]+int((xyxy[0]-xyxy[2])/2)),(xyxy[3]+int((xyxy[1]-xyxy[3])/2)))
+                        A_one_box=int((xyxy[0]-xyxy[2])/2) #ancho/2 del box
+                        color = (0, 0, 255)
+                        thickness=-1
+                        radius = 5
+                        label='v'
+                        cv2.circle(im0, center_coordinates, radius, color, thickness)  #circle over the leaf
+                        #label = None if hide_labels else (names[c] if hide_conf else f'{names[c]} {conf:.2f}')
                         annotator.box_label(xyxy, label, color=colors(c, True))
                         if save_crop:
                             save_one_box(xyxy, imc, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
+                 if i_area!=0:
+                     area=area/i_area #area promedio dentro de la franja por frame
+                else:
+                    area=0
+                cum_sum_.loc[len(cum_sum_)] = [vainas, area, i_area, frame]
+                w_size=area
+                area=0
+                i_area=0
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            cv2.putText(im0, str('Pods Count: ' + str(round(vainas,0))), (0,50), font, 1, (255, 0, 0), 2, cv2.LINE_AA)
+            if vainas==0:
+                cum_sum_.loc[len(cum_sum_)] = [vainas, area, i_area, frame]
+            cum_sum_.to_csv(save_path+'.csv', index=False, mode='w+')
 
             # Stream results
             im0 = annotator.result()
