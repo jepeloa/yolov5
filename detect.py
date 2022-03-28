@@ -28,7 +28,7 @@ import argparse
 import os
 import sys
 from pathlib import Path
-
+import pandas as pd  #added for store the partials counts of the inferences
 import torch
 import torch.backends.cudnn as cudnn
 
@@ -264,7 +264,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                         annotator.box_label(xyxy, label, color=colors(c, True))
                         if save_crop:
                             save_one_box(xyxy, imc, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
-                 if i_area!=0:
+                if i_area!=0:
                      area=area/i_area #area promedio dentro de la franja por frame
                 else:
                     area=0
