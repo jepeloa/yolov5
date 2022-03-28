@@ -262,6 +262,10 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                         cv2.circle(im0, center_coordinates, radius, color, thickness)  #circle over the leaf
                         #label = None if hide_labels else (names[c] if hide_conf else f'{names[c]} {conf:.2f}')
                         annotator.box_label(xyxy, label, color=colors(c, True))
+                        vainas=count_vains(center_coordinates[0],600,vainas, int(abs(w_size)), im0, center_coordinates, xyxy)
+                        res1, res2=measure_area(center_coordinates[0],600,A_one_box, i_area)
+                        area=area+res1
+                        i_area=res2
                         if save_crop:
                             save_one_box(xyxy, imc, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
                 if i_area!=0:
