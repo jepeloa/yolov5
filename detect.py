@@ -94,8 +94,8 @@ def count_vains(x_lim,x_measured,vains, w_size, im, center_coordinates, xyxy):
         thickness=-1
         radius = 5
         cv2.circle(im, center_coordinates, radius, color, thickness)
-        #annotator = Annotator(im, line_width=thickness, example='')
-        #annotator.box_label(xyxy, 'h', color=256)
+        annotator = Annotator(im, line_width=thickness, example='')
+        annotator.box_label(xyxy, 'h', color=256)
         vains=vains+1;
         return vains
     else:
@@ -255,7 +255,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                         c = int(cls)  # integer class
                         center_coordinates=((xyxy[2]+int((xyxy[0]-xyxy[2])/2)),(xyxy[3]+int((xyxy[1]-xyxy[3])/2)))
                         A_one_box=int((xyxy[0]-xyxy[2])/2) #ancho/2 del box
-                        color = (0, 0, 255)
+                        color = (0, 255, 0)
                         thickness=-1
                         radius = 5
                         label='v'
