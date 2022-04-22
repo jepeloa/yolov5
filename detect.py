@@ -29,6 +29,7 @@ import os
 import sys
 from pathlib import Path
 import pandas as pd  #added for store the partials counts of the inferences
+import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 
@@ -195,7 +196,11 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
     vainas=0
     model.warmup(imgsz=(1 if pt else bs, 3, *imgsz))  # warmup
     dt, seen = [0.0, 0.0, 0.0], 0
+    csv_file=(Path(dataset.files[0]).name).split(".mp4")[0]+".csv"
+    print("processing: " + csv_file) ##agregue esto para identificar el nombre del video
+    csv_pd = pd.read_csv(csv_file)
     for path, im, im0s, vid_cap, s in dataset:
+        #############Seguir trabajando aca para hallar el nombre del video
         t1 = time_sync()
         im = torch.from_numpy(im).to(device)
         im = im.half() if model.fp16 else im.float()  # uint8 to fp16/32
@@ -244,13 +249,17 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                     s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
 
                 # Write results
+                ############ extraccion dato de velocidad####################
+                print(frame)
+                robot_speed_=np.interp(frame/10, csv_pd['duration_video'], csv_pd['vel'])
+                print(robot_speed_)
+                ##############################################################
                 for *xyxy, conf, cls in reversed(det):
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
                         line = (cls, *xywh, conf) if save_conf else (cls, *xywh)  # label format
                         with open(txt_path + '.txt', 'a') as f:
                             f.write(('%g ' * len(line)).rstrip() % line + '\n')
-
                     if save_img or save_crop or view_img:  # Add bbox to image
                         c = int(cls)  # integer class
                         center_coordinates=((xyxy[2]+int((xyxy[0]-xyxy[2])/2)),(xyxy[3]+int((xyxy[1]-xyxy[3])/2)))
@@ -262,7 +271,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                         cv2.circle(im0, center_coordinates, radius, color, thickness)  #circle over the leaf
                         #label = None if hide_labels else (names[c] if hide_conf else f'{names[c]} {conf:.2f}')
                         annotator.box_label(xyxy, label, color=colors(c, True))
-                        vainas=count_vains(center_coordinates[0],600,vainas, 6*int(abs(w_size)), im0, center_coordinates, xyxy)
+                        vainas=count_vains(center_coordinates[0],600,vainas, 10*(robot_speed_)*int(abs(w_size)), im0, center_coordinates, xyxy)
                         res1, res2=measure_area(center_coordinates[0],600,A_one_box, i_area)
                         area=area+res1
                         i_area=res2
@@ -278,6 +287,8 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                 i_area=0
             font = cv2.FONT_HERSHEY_SIMPLEX
             cv2.putText(im0, str('Pods Count: ' + str(round(vainas,0))), (0,50), font, 1, (255, 0, 0), 2, cv2.LINE_AA)
+            drawLine(im0,(600-10*robot_speed_*w_size,0),(600-10*robot_speed_*w_size,240))  #camara ELP a 35cm del cultivo #585
+            drawLine(im0,(600+10*robot_speed_*w_size,0),(600+10*robot_speed_*w_size,240))  #615
             if vainas==0:
                 cum_sum_.loc[len(cum_sum_)] = [vainas, area, i_area, frame]
             cum_sum_.to_csv(save_path+'.csv', index=False, mode='w+')
