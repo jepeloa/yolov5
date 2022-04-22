@@ -196,8 +196,8 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
     vainas=0
     model.warmup(imgsz=(1 if pt else bs, 3, *imgsz))  # warmup
     dt, seen = [0.0, 0.0, 0.0], 0
-    csv_file="/content/yolov5/"+(Path(dataset.files[0]).name).split(".mp4")[0]+".csv"
-    print("processing: " + "/content/yolov5/"+ csv_file) ##agregue esto para identificar el nombre del video
+    csv_file="/content/yolov5/videos/"+(Path(dataset.files[0]).name).split(".mp4")[0]+".csv"
+    print("processing: " + "/content/yolov5/videos"+ csv_file) ##agregue esto para identificar el nombre del video
     csv_pd = pd.read_csv(csv_file)
     for path, im, im0s, vid_cap, s in dataset:
         #############Seguir trabajando aca para hallar el nombre del video
