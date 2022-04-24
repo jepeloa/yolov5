@@ -197,7 +197,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
     i_area=0 #numero de iteraciones
     w_size=15 #ancho default
     thersold=12 #cantidad de frames que aparece la franja secundaria si hay obstruccion
-    column_names = ["vainas", "area", "diff", "frame", "robot_speed_"]
+    column_names = ["vainas", "area", "diff", "frame", "robot_speed_", "distance"]
     cum_sum_ = pd.DataFrame(columns=column_names)
     #--------------------------------------------------------
     # Dataloader
@@ -312,7 +312,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                      area=area/i_area #area promedio dentro de la franja por frame
                 else:
                     area=0
-                cum_sum_.loc[len(cum_sum_)] = [vainas, area, i_area, frame, robot_speed_]
+                cum_sum_.loc[len(cum_sum_)] = [vainas, area, i_area, frame, robot_speed_, distance_plot]
                 w_size=area
                 area=0
                 i_area=0
@@ -321,7 +321,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
             drawLine(im0,(600-10*robot_speed_*w_size,0),(600-10*robot_speed_*w_size,240))  #camara ELP a 35cm del cultivo #585
             drawLine(im0,(600+10*robot_speed_*w_size,0),(600+10*robot_speed_*w_size,240))  #615
             if vainas==0:
-                cum_sum_.loc[len(cum_sum_)] = [vainas, area, i_area, frame, robot_speed_]
+                cum_sum_.loc[len(cum_sum_)] = [vainas, area, i_area, frame, robot_speed_, distance_plot]
             cum_sum_.to_csv(save_path+'.csv', index=False, mode='w+')
 
             # Stream results
