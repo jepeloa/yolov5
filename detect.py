@@ -281,7 +281,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                 lon1=csv_pd['longitude'].min()
                 lat2=np.interp(frame/10, csv_pd['duration_video'], csv_pd['latitude'])
                 lon2=np.interp(frame/10, csv_pd['duration_video'], csv_pd['longitude'])
-                distance_plot=measure_distance(lat1,lon1,lat2,lon2)
+                distance_plot=1000*measure_distance(lat1,lon1,lat2,lon2)
                 print(distance_plot)
                 ##############################################################
                 
