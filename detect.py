@@ -29,7 +29,10 @@ import os
 import sys
 from pathlib import Path
 import pandas as pd  #added for store the partials counts of the inferences
-import numpy as np
+import numpy as np   #added for interpolate data from the gps data
+import math
+
+
 import torch
 import torch.backends.cudnn as cudnn
 
@@ -107,7 +110,24 @@ def measure_area(x_lim,x_measured,A_one_box, i_area):
         i_area=i_area+1
         return A_one_box, i_area
     else:
-        return 0, i_area   
+        return 0, i_area  
+def measure_distance(lat1,lon1,lat2,lon2):
+    # approximate radius of earth in km
+    R = 6373.0
+
+    lat1 = math.radians(lat1)
+    lon1 = math.radians(lon1)
+    lat2 = math.radians(lat2)
+    lon2 = math.radians(lon2)
+
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+
+    a = math.sin(dlat / 2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    distance = R * c
+    return distance
 
 
 
@@ -177,7 +197,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
     i_area=0 #numero de iteraciones
     w_size=15 #ancho default
     thersold=12 #cantidad de frames que aparece la franja secundaria si hay obstruccion
-    column_names = ["vainas", "area", "diff", "frame"]
+    column_names = ["vainas", "area", "diff", "frame", "robot_speed_"]
     cum_sum_ = pd.DataFrame(columns=column_names)
     #--------------------------------------------------------
     # Dataloader
@@ -254,6 +274,17 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                 robot_speed_=np.interp(frame/10, csv_pd['duration_video'], csv_pd['vel'])
                 print(robot_speed_)
                 ##############################################################
+                
+                ############ calculo de distancia############################
+                
+                lat1=csv_pd['latitude'].min()
+                lon1=csv_pd['longitude'].min()
+                lat2=np.interp(frame/10, csv_pd['duration_video'], csv_pd['latitude'])
+                lon2=np.interp(frame/10, csv_pd['duration_video'], csv_pd['longitude'])
+                distance_plot=measure_distance(lat1,lon1,lat2,lon2)
+                print(distance_plot)
+                ##############################################################
+                
                 for *xyxy, conf, cls in reversed(det):
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
@@ -281,7 +312,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                      area=area/i_area #area promedio dentro de la franja por frame
                 else:
                     area=0
-                cum_sum_.loc[len(cum_sum_)] = [vainas, area, i_area, frame]
+                cum_sum_.loc[len(cum_sum_)] = [vainas, area, i_area, frame, robot_speed_]
                 w_size=area
                 area=0
                 i_area=0
@@ -290,7 +321,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
             drawLine(im0,(600-10*robot_speed_*w_size,0),(600-10*robot_speed_*w_size,240))  #camara ELP a 35cm del cultivo #585
             drawLine(im0,(600+10*robot_speed_*w_size,0),(600+10*robot_speed_*w_size,240))  #615
             if vainas==0:
-                cum_sum_.loc[len(cum_sum_)] = [vainas, area, i_area, frame]
+                cum_sum_.loc[len(cum_sum_)] = [vainas, area, i_area, frame, robot_speed_]
             cum_sum_.to_csv(save_path+'.csv', index=False, mode='w+')
 
             # Stream results
