@@ -129,6 +129,23 @@ def measure_distance(lat1,lon1,lat2,lon2):
     distance = R * c
     return distance
 
+def count_seeds_type(x_lim,x_measured,seeds_1,seeds_2,seeds_3,seeds_4,quantity,w_size):
+    if abs(x_lim-x_measured)<=w_size:   #15
+        if quantity==1:
+            seeds_1=seeds_1+1;
+            return seeds_1, seeds_2, seeds_3, seeds_4
+        if quantity==2:
+            seeds_2=seeds_2+1;
+            return seeds_1, seeds_2, seeds_3, seeds_4
+        if quantity==3:
+            seeds_3=seeds_3+1;
+            return seeds_1, seeds_2, seeds_3, seeds_4
+        if quantity==4:
+            seeds_4=seeds_4+1; 
+            return seeds_1, seeds_2, seeds_3, seeds_4   
+    else:
+        return seeds_1, seeds_2, seeds_3, seeds_4
+    
 
 
 FILE = Path(__file__).resolve()
@@ -214,6 +231,10 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
     # Run inference
     area=0
     vainas=0
+    seeds_1=0
+    seeds_2=0
+    seeds_3=0
+    seeds_4=0
     model.warmup(imgsz=(1 if pt else bs, 3, *imgsz))  # warmup
     dt, seen = [0.0, 0.0, 0.0], 0
     csv_file="/content/yolov5/videos/"+(Path(dataset.files[0]).name).split(".mp4")[0]+".csv"
@@ -302,27 +323,31 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                         cv2.circle(im0, center_coordinates, radius, color, thickness)  #circle over the leaf
                         #label = None if hide_labels else (names[c] if hide_conf else f'{names[c]} {conf:.2f}')
                         annotator.box_label(xyxy, label, color=colors(c, True))
-                        vainas=count_vains(center_coordinates[0],600,vainas, 10*(robot_speed_)*int(abs(w_size)), im0, center_coordinates, xyxy)
-                        res1, res2=measure_area(center_coordinates[0],600,A_one_box, i_area)
-                        area=area+res1
-                        i_area=res2
+                        if weights=='soja.pt':
+                            vainas=count_vains(center_coordinates[0],600,vainas, 10*(robot_speed_)*int(abs(w_size)), im0, center_coordinates, xyxy)
+                            res1, res2=measure_area(center_coordinates[0],600,A_one_box, i_area)
+                            area=area+res1
+                            i_area=res2
+                        
                         if save_crop:
                             save_one_box(xyxy, imc, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
                 if i_area!=0:
                      area=area/i_area #area promedio dentro de la franja por frame
                 else:
                     area=0
-                cum_sum_.loc[len(cum_sum_)] = [vainas, area, i_area, frame, robot_speed_, distance_plot]
-                w_size=area
-                area=0
-                i_area=0
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            cv2.putText(im0, str('Pods Count: ' + str(round(vainas,0))), (0,50), font, 1, (255, 0, 0), 2, cv2.LINE_AA)
-            drawLine(im0,(600-10*robot_speed_*w_size,0),(600-10*robot_speed_*w_size,240))  #camara ELP a 35cm del cultivo #585
-            drawLine(im0,(600+10*robot_speed_*w_size,0),(600+10*robot_speed_*w_size,240))  #615
-            if vainas==0:
-                cum_sum_.loc[len(cum_sum_)] = [vainas, area, i_area, frame, robot_speed_, distance_plot]
-            cum_sum_.to_csv(save_path+'.csv', index=False, mode='w+')
+                if weights=='soja.pt':
+                    cum_sum_.loc[len(cum_sum_)] = [vainas, area, i_area, frame, robot_speed_, distance_plot]
+                    w_size=area
+                    area=0
+                    i_area=0
+            if weights=='soja.pt':
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                cv2.putText(im0, str('Pods Count: ' + str(round(vainas,0))), (0,50), font, 1, (255, 0, 0), 2, cv2.LINE_AA)
+                drawLine(im0,(600-10*robot_speed_*w_size,0),(600-10*robot_speed_*w_size,240))  #camara ELP a 35cm del cultivo #585
+                drawLine(im0,(600+10*robot_speed_*w_size,0),(600+10*robot_speed_*w_size,240))  #615
+                if vainas==0:
+                    cum_sum_.loc[len(cum_sum_)] = [vainas, area, i_area, frame, robot_speed_, distance_plot]
+                cum_sum_.to_csv(save_path+'.csv', index=False, mode='w+')
 
             # Stream results
             im0 = annotator.result()
